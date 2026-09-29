@@ -47,6 +47,9 @@ for phase in ${PHASES//,/ }; do
     kernels)
       run_phase kernels in_image bash /debug/kernel_tests.sh
       ;;
+    deepseek)
+      run_phase deepseek env OUT="$OUT" bash "$HERE/deepseek_ab.sh"
+      ;;
     *)
       echo "unknown phase: $phase"
       failed="$failed $phase"
@@ -55,7 +58,7 @@ for phase in ${PHASES//,/ }; do
 done
 
 echo "+++ :clipboard: RESULT lines for $(hostname)"
-cat "$OUT"/*.log | grep -h '^RESULT ' | tee "$OUT/results.txt"
+cat "$OUT"/*.log | grep '^RESULT ' | awk '!seen[$0]++' | tee "$OUT/results.txt"
 if [ -n "$failed" ]; then
   echo "Failed phases:$failed"
   exit 1
