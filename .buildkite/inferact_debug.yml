@@ -2,7 +2,8 @@
 # same checks in the image from tpu-inference-ci #870, one on an inferact host
 # and one on a cicd host, so a difference between them comes from the host.
 # PHASES selects checks (facts, numerics, kernels); set it on the build to
-# rerun one phase.
+# rerun one phase. Buildkite only matches whole tag values, so each step is
+# pinned to one host; override INFERACT_HOST or CICD_HOST to pick another.
 env:
   DEBUG_IMAGE: "us-central1-docker.pkg.dev/cloud-ullm-inference-ci-cd/tpu-inference-ci/vllm-tpu@sha256:416be693c6a289b957a0eee76c450c4bc932d0c4c7f970d011b70bfd4747e48a"
   PHASES: "${PHASES:-facts,numerics,kernels}"
@@ -12,7 +13,7 @@ steps:
     key: parity-inferact
     agents:
       queue: tpu_v7x_8_queue
-      hostname: "tpu7x-8-ci-*-inferact-us-central1-c"
+      hostname: "${INFERACT_HOST:-tpu7x-8-ci-5-inferact-us-central1-c}"
     priority: 10
     timeout_in_minutes: 90
     command: bash .buildkite/scripts/inferact_debug/run.sh
@@ -22,7 +23,7 @@ steps:
     key: parity-cicd
     agents:
       queue: tpu_v7x_8_queue
-      hostname: "tpu7x-8-ci-*-cicd-us-central1-c"
+      hostname: "${CICD_HOST:-tpu7x-8-ci-0-cicd-us-central1-c}"
     priority: 10
     timeout_in_minutes: 90
     command: bash .buildkite/scripts/inferact_debug/run.sh
