@@ -208,7 +208,9 @@ def moe_gmm_local(x: jax.Array,
     gmm2_res = gmm_wrapper(gmm1_res, w2, w2_scale, w2_bias, group_sizes,
                            group_offset)
 
-    batch_size = gmm2_res.shape[0]
+    # Not gmm2_res.shape[0]: x may carry padding rows past the last group
+    # (MOE_LEAN_PERMUTE_GATHER).
+    batch_size = topk_argsort_revert_indices.shape[0]
     local_group_size = w1.shape[0]
 
     reduction_axis = (ShardingAxisName.MLP_TENSOR
@@ -287,7 +289,7 @@ def moe_gmm_local(x: jax.Array,
             if onehot_moe_permute_threshold > 0 and batch_size <= onehot_moe_permute_threshold:
                 revert_indices = cur_indices.reshape(-1, topk)
                 onehot = jax.nn.one_hot(revert_indices,
-                                        batch_size,
+                                        gmm2_res.shape[0],
                                         dtype=gmm2_res.dtype)
                 combine = (onehot * cur_weights[..., None] *
                            cur_mask).sum(axis=1)
@@ -706,11 +708,14 @@ def fused_moe_func(
                                         dtype=hidden_states_local.dtype)
                 x = onehot @ hidden_states_local
             else:
+                lean = envs.MOE_LEAN_PERMUTE_GATHER
                 x = ragged_gather(
                     hidden_states_local,
                     token_indices_sorted,
                     shard_output_start,
                     shard_output_end,
+                    max_row_subchunks=1 if lean else 4,
+                    trim_rows=not lean,
                 )
         else:
             x = hidden_states_local[token_indices_sorted]

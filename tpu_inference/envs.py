@@ -85,6 +85,7 @@ if TYPE_CHECKING:
     HASH_TABLE_ROW_MAJOR: bool = False
     MIN_TOKEN_BUCKET: int = 16
     MOE_ROUTE_PADDING_TO_EXPERT0: bool = False
+    MOE_LEAN_PERMUTE_GATHER: bool = False
     VLLM_TPU_BUCKET_PADDING_GAP: int = 0
     VLLM_INCREMENTAL_FP8_LOADING: bool = False
     TPU_MESH_SORT_BY_COORDS: bool = False
@@ -527,6 +528,12 @@ environment_variables: dict[str, Callable[[], Any]] = {
     # is interleaved per rank and a single valid-token count cannot describe it.
     "MOE_ROUTE_PADDING_TO_EXPERT0":
     env_bool("MOE_ROUTE_PADDING_TO_EXPERT0", default=False),
+    # EP dispatch permute gather: size the SparseCore gather's blocks for one
+    # shard's rows (max_row_subchunks=1) and hand the block-padded output to
+    # gmm_v2 instead of copying it to num_tokens * topk rows. See
+    # ragged_gather_v2 and fused_moe_gmm.py.
+    "MOE_LEAN_PERMUTE_GATHER":
+    env_bool("MOE_LEAN_PERMUTE_GATHER", default=False),
     # Gap between token-bucket padding sizes for TPU precompilation. When 0,
     # buckets grow as powers of two; otherwise buckets increase by this gap
     # once past the power-of-two ramp. Previously provided by vllm.envs, which

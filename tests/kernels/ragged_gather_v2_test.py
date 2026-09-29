@@ -33,8 +33,9 @@ class GatherTest(jtu.JaxTestCase):
         start_end=[(3, 338), (10, 422)],
         hidden_size=[128, 512, 8192],
         dtype=[jnp.int4, jnp.int8, jnp.bfloat16, jnp.float32],
+        lean=[False, True],
     )
-    def test_sc_gather(self, in_out_size, hidden_size, start_end, dtype):
+    def test_sc_gather(self, in_out_size, hidden_size, start_end, dtype, lean):
         in_size, out_size = in_out_size
         start, end = start_end
         start = min(start, out_size)
@@ -47,8 +48,21 @@ class GatherTest(jtu.JaxTestCase):
         start_arr = jnp.array([start], jnp.int32)
         end_arr = jnp.array([end], jnp.int32)
 
-        actual = ragged_gather_v2(x, indices, start_arr, end_arr)
+        # lean mirrors fused_moe_gmm.py with MOE_LEAN_PERMUTE_GATHER on.
+        actual = ragged_gather_v2(x,
+                                  indices,
+                                  start_arr,
+                                  end_arr,
+                                  max_row_subchunks=1 if lean else 4,
+                                  trim_rows=not lean)
         actual.block_until_ready()
+
+        # Untrimmed output keeps the kernel's block padding rows.
+        self.assertEqual(actual.shape[1], hidden_size)
+        if lean:
+            self.assertGreaterEqual(actual.shape[0], out_size)
+        else:
+            self.assertEqual(actual.shape[0], out_size)
 
         # Correctness check.
         actual = actual[start:end]
